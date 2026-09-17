@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  kugou-checkin:
+    image: twh808/kugoulogin:latest
+    container_name: kugou-checkin
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
