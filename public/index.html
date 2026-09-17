@@ -79,6 +79,7 @@
       <div class="card-actions">
         <button class="btn ghost" id="copyTextBtn">复制全部（文本）</button>
         <button class="btn ghost" id="copyJsonBtn">复制全部（JSON）</button>
+        <button class="btn ghost" id="copyCredBtn">复制拼接串</button>
         <button class="btn ghost" id="reloginBtn">重新登录</button>
       </div>
     </div>
@@ -145,6 +146,39 @@
     ta.select();
     try { document.execCommand('copy'); toast('已复制'); } catch(e){ toast('复制失败，请手动复制'); }
     document.body.removeChild(ta);
+  }
+
+  // ---- mid#dfid#uid#token 拼接串 ----
+  function getCookie(name){
+    var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1].trim()) : '';
+  }
+  function randomHex(len){
+    var chars = '0123456789abcdef', s = '';
+    for(var i = 0; i < len; i++) s += chars[Math.floor(Math.random() * 16)];
+    return s;
+  }
+  function randomAlnum(len){
+    var chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', s = '';
+    for(var i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }
+  function randomDigits(len){
+    var s = '';
+    for(var i = 0; i < len; i++) s += Math.floor(Math.random() * 10);
+    return s;
+  }
+  function buildCredential(){
+    // mid：优先取服务器下发的 KUGOU_API_MID，不存在则随机 40 位十六进制
+    var mid = getCookie('KUGOU_API_MID') || randomHex(40);
+    // dfid：登录流程不会下发 dfid，缺失时按模板随机 20 位字母数字
+    var dfid = getCookie('dfid') || randomAlnum(20);
+    // uid：优先取登录下发的 userid / 用户信息中的 id，缺失则随机 10 位数字
+    var d = collected.detail || {};
+    var uid = getCookie('userid') || d.userid || d.id || randomDigits(10);
+    // token：登录下发的 token
+    var token = getCookie('token') || d.token || '';
+    return mid + '#' + dfid + '#' + uid + '#' + token;
   }
 
   // ---- 平台切换 ----
@@ -305,6 +339,10 @@
     var list = (pl && Array.isArray(pl.list)) ? pl.list : [];
     rows.push({label:'歌单数量', value: String(pl && pl.total ? pl.total : list.length)});
 
+    // 拼接串置顶展示
+    collected.credential = buildCredential();
+    rows.unshift({label: '拼接串(mid#dfid#uid#token)', value: collected.credential});
+
     var html = '';
     rows.forEach(function(r){
       html += '<div class="row"><span class="label">' + esc(r.label) + '</span><span class="value">' + esc(r.value) + '</span><button class="copy-btn" data-value="' + esc(r.value) + '">复制</button></div>';
@@ -349,6 +387,7 @@
   document.getElementById('copyTextBtn').addEventListener('click', function(){
     if(!collected.rows){ toast('暂无数据'); return; }
     var lines = ['【酷狗账户信息 · ' + platformName() + '】'];
+    if(collected.credential) lines.push('拼接串: ' + collected.credential);
     collected.rows.forEach(function(r){ lines.push(r.label + ': ' + r.value); });
     var pl = collected.playlist;
     var list = (pl && Array.isArray(pl.list)) ? pl.list : [];
@@ -365,6 +404,12 @@
   document.getElementById('copyJsonBtn').addEventListener('click', function(){
     if(!collected.detail){ toast('暂无数据'); return; }
     copyText(JSON.stringify(collected, null, 2));
+  });
+
+  // 复制拼接串 mid#dfid#uid#token
+  document.getElementById('copyCredBtn').addEventListener('click', function(){
+    if(!collected.credential){ toast('暂无数据'); return; }
+    copyText(collected.credential);
   });
 
   // 重新登录
