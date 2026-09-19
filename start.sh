@@ -36,10 +36,10 @@ done
 
 echo ""
 echo "=========================================="
-echo "  启动 Nginx（对外端口 80）"
-echo "  前端页面:   http://localhost/"
-echo "  普通版 API: http://localhost/api/normal/"
-echo "  概念版 API: http://localhost/api/lite/"
+echo "  启动 Nginx（对外端口 6062，host 模式）"
+echo "  前端页面:   http://localhost:6062/"
+echo "  普通版 API: http://localhost:6062/api/normal/"
+echo "  概念版 API: http://localhost:6062/api/lite/"
 echo "=========================================="
 echo ""
 
