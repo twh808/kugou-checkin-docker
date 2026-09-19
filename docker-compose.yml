@@ -4,8 +4,7 @@ services:
   kugou-checkin:
     image: twh808/kugoulogin:latest
     container_name: kugou-checkin
-    ports:
-      - "8080:80"
+    network_mode: host
     restart: unless-stopped
     environment:
       - TZ=Asia/Shanghai
