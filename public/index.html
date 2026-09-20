@@ -105,6 +105,7 @@
       <div class="qr-area">
         <img id="qrImg" src="" alt="扫码登录二维码" style="display:none;">
         <div class="qr-tip" id="qrTip">正在生成二维码…</div>
+        <button class="btn ghost small" id="refreshQrBtn" style="margin-top:12px;">刷新二维码</button>
       </div>
     </div>
 
@@ -250,6 +251,7 @@
     qrLogin.style.display = 'block';
     startQrLogin();
   });
+  document.getElementById('refreshQrBtn').addEventListener('click', startQrLogin);
 
   // ---- 发送验证码 ----
   var countdown = 0;
@@ -388,7 +390,7 @@
             qrTip.textContent = '扫码成功，正在获取账户信息…';
             setStatus('扫码登录成功，正在获取账户信息…', 'ok');
             // 等待 cookie 同步后再加载
-            setTimeout(loadInfo, 1000);
+            setTimeout(loadInfo, 500);
           } else if(st === 0 || st === '0' || st === 401){
             stopQrPoll();
             qrTip.className = 'qr-tip qr-expired';
