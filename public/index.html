@@ -25,9 +25,9 @@
   .form-row{display:flex; gap:8px; align-items:stretch;}
   .form-row input{border:1px solid var(--border); border-radius:8px; padding:12px 14px; font-size:15px; outline:none; transition:border-color .2s, box-shadow .2s; background:#fafbfc;}
   .form-row input::placeholder{color:#b8bfc9;}
-  .form-row .phone-input{width:100%; box-sizing:border-box;}
-  .form-row input.code-input{flex:0 0 140px; text-align:center; letter-spacing:6px; font-weight:500; font-size:16px;}
-  .form-row .send-btn{padding:12px 18px; font-size:14px; white-space:nowrap; border-radius:8px;}
+  .form-row .phone-input{flex:1; min-width:0;}
+  .form-row input.code-input{flex:1; min-width:0; text-align:center; letter-spacing:4px; font-weight:500; font-size:16px;}
+  .form-row .send-btn{padding:12px 12px; font-size:13px; white-space:nowrap; border-radius:8px; flex-shrink:0;}
   .form-row input:focus{border-color:var(--primary); box-shadow:0 0 0 3px rgba(30,128,255,.1); background:#fff;}
   .btn{border:none; border-radius:8px; padding:11px 16px; font-size:14px; cursor:pointer; background:var(--primary); color:#fff; white-space:nowrap; transition:opacity .2s;}
   .btn:hover{opacity:.9;}
@@ -45,7 +45,8 @@
   .row{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:9px 0; border-bottom:1px dashed var(--border); font-size:14px;}
   .row:last-child{border-bottom:none;}
   .row .label{color:var(--muted); flex-shrink:0;}
-  .row .value{word-break:break-all; text-align:right; color:var(--text); min-width:0;}
+  .row .value{word-break:break-all; text-align:right; color:var(--text); min-width:0; overflow-x:auto; white-space:nowrap;}
+  .row .value.long-text{font-size:12px; white-space:normal; word-break:break-all;}
   .copy-btn{flex-shrink:0; border:1px solid var(--border); background:#fff; border-radius:6px; padding:3px 8px; font-size:12px; color:var(--primary); cursor:pointer;}
   .copy-btn:hover{background:#f0f6ff;}
   details{margin-top:12px; font-size:13px;}
@@ -473,7 +474,7 @@
 
     // 核心字段
     collected.credential = buildCredential();
-    rows.push({label: '拼接串(mid#dfid#uid#token)', value: collected.credential});
+    rows.push({label: '拼接串(mid#dfid#uid#token)', value: collected.credential, longText: true});
     rows.push({label: '用户ID', value: String(d.userid || d.id || getCookie('userid') || '—')});
     rows.push({label: '昵称', value: String(d.nickname || d.nick || '—')});
     rows.push({label: '手机号', value: String(d.phonenumber || '—')});
@@ -482,7 +483,8 @@
 
     var html = '';
     rows.forEach(function(r){
-      html += '<div class="row"><span class="label">' + esc(r.label) + '</span><span class="value">' + esc(r.value) + '</span><button class="copy-btn" data-value="' + esc(r.value) + '">复制</button></div>';
+      var cls = r.longText ? 'value long-text' : 'value';
+      html += '<div class="row"><span class="label">' + esc(r.label) + '</span><span class="' + cls + '">' + esc(r.value) + '</span><button class="copy-btn" data-value="' + esc(r.value) + '">复制</button></div>';
     });
     infoCard.innerHTML = html;
 
