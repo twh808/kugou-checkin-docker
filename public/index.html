@@ -443,40 +443,19 @@
 
   function render(){
     var rows = [];
-    function addRows(obj, prefix){
-      if(!obj || typeof obj !== 'object') return;
-      Object.keys(obj).forEach(function(k){
-        var v = obj[k];
-        if(v === null || v === undefined || v === '') return;
-        if(typeof v === 'object') return;
-        var label = LABELS[k] || k;
-        if(prefix) label = prefix + '·' + label;
-        if(k === 'gender' && !prefix) v = genderText(v);
-        rows.push({label: label, value: String(v)});
-      });
-    }
-
-    rows.push({label:'平台', value: platformName()});
-    addRows(collected.detail);
-    var hasUid = rows.some(function(r){ return r.label === '用户ID' && r.value !== '—'; });
-    if(!hasUid) rows.push({label:'用户ID', value: '—'});
-
-    var vip = collected.vip;
-    if(vip && typeof vip === 'object' && Object.keys(vip).length){
-      Object.keys(vip).forEach(function(k){
-        var v = vip[k];
-        if(v === null || v === undefined || v === '') return;
-        if(typeof v === 'object') return;
-        rows.push({label: 'VIP·' + k, value: String(v)});
-      });
-    }
-
-    var pl = collected.playlist;
+    var d = collected.detail || {};
+    var vip = collected.vip || {};
+    var pl = collected.playlist || {};
     var list = (pl && Array.isArray(pl.list)) ? pl.list : [];
-    rows.push({label:'歌单数量', value: String(pl && pl.total ? pl.total : list.length)});
 
+    // 核心字段
     collected.credential = buildCredential();
-    rows.unshift({label: '拼接串(mid#dfid#uid#token)', value: collected.credential});
+    rows.push({label: '拼接串(mid#dfid#uid#token)', value: collected.credential});
+    rows.push({label: '用户ID', value: String(d.userid || d.id || getCookie('userid') || '—')});
+    rows.push({label: '昵称', value: String(d.nickname || d.nick || '—')});
+    rows.push({label: '手机号', value: String(d.phonenumber || '—')});
+    rows.push({label: 'VIP类型', value: String(vip.vip_type || vip.type || '—')});
+    rows.push({label: '歌单数量', value: String(pl.total || list.length || 0)});
 
     var html = '';
     rows.forEach(function(r){
