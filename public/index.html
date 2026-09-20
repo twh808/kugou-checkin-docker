@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿<!-- updated at 2026-09-20 21:36:39 -->
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -413,16 +414,17 @@
       .then(function(json){
         console.log('user/detail response:', json);
         collected.detail = unwrap(json);
-        // 再获取 VIP 和歌单（失败不影响主流程）
-        return Promise.all([
-          fetch(apiBase() + '/user/vip/detail', {credentials: 'include'}).then(function(r){ return r.json(); }).catch(function(){ return {}; }),
-          fetch(apiBase() + '/user/playlist?page=1&pagesize=30', {credentials: 'include'}).then(function(r){ return r.json(); }).catch(function(){ return {}; })
-        ]);
-      })
-      .then(function(results){
-        collected.vip = unwrap(results[0]);
-        collected.playlist = unwrap(results[1]);
+        // 立即渲染，不等 VIP 和歌单
         render();
+        // 异步加载 VIP 和歌单
+        fetch(apiBase() + '/user/vip/detail', {credentials: 'include'})
+          .then(function(r){ return r.json(); })
+          .then(function(json){ collected.vip = unwrap(json); render(); })
+          .catch(function(e){ console.log('vip error', e); });
+        fetch(apiBase() + '/user/playlist?page=1&pagesize=30', {credentials: 'include'})
+          .then(function(r){ return r.json(); })
+          .then(function(json){ collected.playlist = unwrap(json); render(); })
+          .catch(function(e){ console.log('playlist error', e); });
       })
       .catch(function(err){
         console.error('loadInfo error:', err);
@@ -449,6 +451,7 @@
   }
 
   function render(){
+    console.log('render called');
     var rows = [];
     var d = collected.detail || {};
     var vip = collected.vip || {};
