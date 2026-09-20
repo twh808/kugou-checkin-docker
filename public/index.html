@@ -390,7 +390,7 @@
             qrTip.textContent = '扫码成功，正在获取账户信息…';
             setStatus('扫码登录成功，正在获取账户信息…', 'ok');
             // 等待 cookie 同步后再加载
-            setTimeout(loadInfo, 500);
+            setTimeout(loadInfo, 300);
           } else if(st === 0 || st === '0' || st === 401){
             stopQrPoll();
             qrTip.className = 'qr-tip qr-expired';
@@ -412,17 +412,30 @@
   // ---- 获取账户信息 ----
   function loadInfo(){
     collected = { platform: platformName(), api: apiBase() };
-    var p1 = fetch(apiBase() + '/user/detail').then(parseJson);
-    var p2 = fetch(apiBase() + '/user/vip/detail').then(parseJson);
-    var p3 = fetch(apiBase() + '/user/playlist?page=1&pagesize=30').then(parseJson);
-    Promise.all([p1, p2, p3]).then(function(results){
-      collected.detail = unwrap(results[0]);
-      collected.vip = unwrap(results[1]);
-      collected.playlist = unwrap(results[2]);
-      render();
-    }).catch(function(err){
-      setStatus('获取账户信息失败：' + err.message, 'err');
-    });
+    setStatus('正在获取账户信息…', 'info');
+    
+    // 先获取核心用户信息
+    fetch(apiBase() + '/user/detail')
+      .then(function(res){ 
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json(); 
+      })
+      .then(function(json){
+        collected.detail = unwrap(json);
+        // 再获取 VIP 和歌单（失败不影响主流程）
+        return Promise.all([
+          fetch(apiBase() + '/user/vip/detail').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
+          fetch(apiBase() + '/user/playlist?page=1&pagesize=30').then(function(r){ return r.json(); }).catch(function(){ return {}; })
+        ]);
+      })
+      .then(function(results){
+        collected.vip = unwrap(results[0]);
+        collected.playlist = unwrap(results[1]);
+        render();
+      })
+      .catch(function(err){
+        setStatus('获取账户信息失败：' + err.message + '（请重新登录）', 'err');
+      });
   }
 
   function parseJson(res){ return res.json(); }
