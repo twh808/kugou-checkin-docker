@@ -383,10 +383,9 @@
         })
         .then(function(json){
           if(!json) return;
-          console.log('qr check response:', json);
-          // 兼容多种返回结构
           var d = json.data || json;
           var st = d.status;
+          console.log('qr check:', 'status=' + st, 'data=' + JSON.stringify(d));
           // 扫码成功：status=4 或有 token 返回
           if(st == 4 || (d.token && d.userid)){
             stopQrPoll();
@@ -403,7 +402,7 @@
           } else if(st == 1){
             qrTip.textContent = '请用酷狗音乐 App 扫码登录';
           } else {
-            qrTip.textContent = '状态：' + st;
+            qrTip.textContent = '状态：' + st + ' ' + JSON.stringify(d).slice(0,50);
           }
         })
         .catch(function(){});
