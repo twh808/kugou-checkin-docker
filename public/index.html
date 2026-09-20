@@ -235,6 +235,10 @@
     infoPanel.style.display = 'none';
     loginPanel.style.display = 'block';
     stopQrPoll();
+    // 如果当前在扫码登录标签页，重新加载二维码
+    if(document.getElementById('tabQr').classList.contains('active')){
+      startQrLogin();
+    }
     setStatus('已切换到' + platformName() + '，请登录后查看账户信息。', 'info');
   }
   document.getElementById('tabNormal').addEventListener('click', function(){ setPlatform('normal'); });
