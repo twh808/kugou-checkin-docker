@@ -1,6 +1,6 @@
 # 酷狗账户信息工具（kugoulogin）
 
-基于 [KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi) 双实例 + Nginx 反代的酷狗账户信息查询工具。支持 **普通版 / 概念版** 两种平台，手机号 + 验证码登录后即可查看并复制账户信息（会员、歌单等）。
+基于 [KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi) 双实例 + Nginx 反代的酷狗账户信息查询工具。支持 **普通版 / 概念版** 两种平台，手机号 + 验证码登录后即可查看并复制账户信息（会员、歌单等），一键复制 `mid#dfid#uid#token` 拼接串。
 
 ## 镜像信息
 
@@ -9,15 +9,16 @@
 | 镜像 | `twh808/kugoulogin:latest` |
 | 支持架构 | linux/amd64、linux/arm64 |
 | Docker Hub | https://hub.docker.com/r/twh808/kugoulogin |
+| 容器内服务端口 | Nginx `6062`（普通版 API `3000`、概念版 API `3001` 仅容器内） |
 
-## 快速安装（docker run）
+## 快速安装（docker run，host 网络模式）
 
-在任何装有 Docker 的机器（服务器 / NAS / 树莓派）上执行：
+容器使用 host 网络模式，Nginx 直接监听宿主机 **6062** 端口，不占用 80 / 443 / 8080 等常用端口。
 
 ```bash
 docker run -d \
   --name kugou-checkin \
-  -p 6062:80 \
+  --network host \
   --restart unless-stopped \
   twh808/kugoulogin:latest
 ```
@@ -26,11 +27,11 @@ docker run -d \
 
 - 页面顶部可切换 普通版 / 概念版（两种平台的登录 Token 不通用，切换后需重新登录）
 - 输入手机号 → 发送验证码 → 输入验证码 → 登录
-- 登录成功后显示账户信息卡片，支持逐行复制、「复制全部（文本）」、「复制全部（JSON）」
+- 登录成功后显示账户信息卡片，支持逐行复制、「复制全部（文本）」、「复制全部（JSON）」、「复制拼接串」（`mid#dfid#uid#token`）
 
 ## 其他安装方式
 
-**docker compose**
+**docker compose（host 网络模式）**
 
 ```bash
 mkdir kugou-checkin && cd kugou-checkin
@@ -38,15 +39,19 @@ mkdir kugou-checkin && cd kugou-checkin
 docker compose up -d
 ```
 
-**Portainer 图形界面**
+compose 文件已使用 `network_mode: host`，无需端口映射。
+
+**Portainer 图形界面（host 网络模式）**
 
 1. Images → Pull image → 输入 `twh808/kugoulogin:latest` → Pull the image
 2. Containers → Add container
    - Name: `kugou-checkin`
    - Image: `twh808/kugoulogin:latest`
-   - Network ports: host `6062` → container `80`
+   - Network: 选择 **Host**（不要选 bridge，不要配置端口映射）
    - Restart policy: `Unless stopped`
 3. Deploy the container
+
+> 注意：host 模式下不需要也不能配置端口映射，容器直接使用宿主机网络栈，占用 6062 端口。
 
 ## 更新镜像
 
@@ -65,6 +70,7 @@ docker restart kugou-checkin
 | 现象 | 处理 |
 |---|---|
 | 页面 502 Bad Gateway | `docker logs kugou-checkin`；`docker exec kugou-checkin cat /var/log/kugou-normal.log`（普通版）/ `kugou-lite.log`（概念版） |
+| 端口被占用 | host 模式下容器占用宿主机 6062，先确认 `ss -tlnp | grep 6062` 是否空闲 |
 | 发送验证码报错 | 酷狗接口可能要求滑块验证，请查看页面提示的原始错误信息 |
 
 ## 本地构建（可选）
