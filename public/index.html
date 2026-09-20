@@ -335,15 +335,23 @@
     qrTip.textContent = '正在生成二维码…';
 
     fetch(apiBase() + '/login/qr/key')
-      .then(function(res){ return res.json(); })
-      .then(function(json){
-        var d = json.data || json;
-        qrKey = d.key || '';
-        if(!qrKey){ qrTip.className = 'qr-tip qr-expired'; qrTip.textContent = '获取二维码失败，请重试'; return; }
-        return fetch(apiBase() + '/login/qr/create?key=' + encodeURIComponent(qrKey));
+      .then(function(res){ 
+        if(!res || !res.ok) throw new Error('接口请求失败 ' + (res ? res.status : ''));
+        return res.json(); 
       })
-      .then(function(res){ return res.json(); })
       .then(function(json){
+        if(!json) throw new Error('返回数据为空');
+        var d = json.data || json;
+        qrKey = d.key || d.qrcode || '';
+        if(!qrKey){ qrTip.className = 'qr-tip qr-expired'; qrTip.textContent = '获取二维码key失败：' + JSON.stringify(json).slice(0,100); return; }
+        return fetch(apiBase() + '/login/qr/create?key=' + encodeURIComponent(qrKey) + '&qrimg=true');
+      })
+      .then(function(res){ 
+        if(!res || !res.ok) throw new Error('二维码生成失败 ' + (res ? res.status : ''));
+        return res.json(); 
+      })
+      .then(function(json){
+        if(!json) throw new Error('返回数据为空');
         var d = (json && json.data) ? json.data : json;
         var b64 = d && d.base64 ? d.base64 : '';
         if(b64){
@@ -353,7 +361,7 @@
           startQrPoll();
         } else {
           qrTip.className = 'qr-tip qr-expired';
-          qrTip.textContent = '二维码生成失败，请刷新重试';
+          qrTip.textContent = '二维码生成失败，请刷新重试：' + JSON.stringify(json).slice(0,100);
         }
       })
       .catch(function(err){
@@ -366,8 +374,12 @@
     stopQrPoll();
     qrPollTimer = setInterval(function(){
       fetch(apiBase() + '/login/qr/check?key=' + encodeURIComponent(qrKey))
-        .then(function(res){ return res.json(); })
+        .then(function(res){ 
+          if(!res || !res.ok) throw new Error('check failed');
+          return res.json(); 
+        })
         .then(function(json){
+          if(!json) return;
           var d = (json && json.data) ? json.data : json;
           var st = d && d.status;
           if(st === 4 || st === '4'){
