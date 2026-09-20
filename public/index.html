@@ -330,57 +330,32 @@
     });
   });
 
-  // ---- 扫码登录（直接调用酷狗原始接口，JSONP 跨域）----
-  var qrCallbackId = 0;
-  function jsonp(url, timeout){
-    return new Promise(function(resolve, reject){
-      var cbName = 'jsonp_cb_' + (++qrCallbackId) + '_' + Date.now();
-      window[cbName] = function(data){
-        resolve(data);
-        delete window[cbName];
-        var s = document.getElementById(cbName);
-        if(s) s.parentNode.removeChild(s);
-      };
-      var script = document.createElement('script');
-      script.id = cbName;
-      script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + cbName;
-      script.onerror = function(){ reject(new Error('JSONP请求失败')); };
-      document.body.appendChild(script);
-      setTimeout(function(){
-        if(window[cbName]){
-          reject(new Error('JSONP超时'));
-          delete window[cbName];
-          if(script.parentNode) script.parentNode.removeChild(script);
-        }
-      }, timeout || 8000);
-    });
-  }
-
+  // ---- 扫码登录（用 API 端接口）----
   function startQrLogin(){
     stopQrPoll();
     qrImg.style.display = 'none';
     qrTip.className = 'qr-tip';
     qrTip.textContent = '正在生成二维码…';
 
-    // 直接调用酷狗原始接口
-    jsonp('https://www.kugou.com/api/v3/login_qr/key')
+    fetch(apiBase() + '/login/qr/key')
+      .then(function(res){ return res.json(); })
       .then(function(json){
-        console.log('qr key response:', json);
-        qrKey = json.data && json.data.key ? json.data.key : '';
+        var d = json.data || json;
+        qrKey = d.key || d.qrcode || '';
         if(!qrKey) throw new Error('获取key失败');
-        return jsonp('https://www.kugou.com/api/v3/login_qr/create?key=' + encodeURIComponent(qrKey));
+        return fetch(apiBase() + '/login/qr/create?key=' + encodeURIComponent(qrKey) + '&qrimg=true');
       })
+      .then(function(res){ return res.json(); })
       .then(function(json){
-        console.log('qr create response:', json);
-        var url = json.data && json.data.url ? json.data.url : '';
-        if(url){
-          // 用第三方二维码 API 生成图片
-          qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(url);
+        var d = (json && json.data) ? json.data : json;
+        var b64 = d && d.base64 ? d.base64 : '';
+        if(b64){
+          qrImg.src = b64;
           qrImg.style.display = 'block';
           qrTip.textContent = '请用酷狗音乐 App 扫码登录';
           startQrPoll();
         } else {
-          throw new Error('二维码URL为空');
+          throw new Error('二维码生成失败');
         }
       })
       .catch(function(err){
@@ -392,42 +367,29 @@
   function startQrPoll(){
     stopQrPoll();
     qrPollTimer = setInterval(function(){
-      jsonp('https://www.kugou.com/api/v3/login_qr/check?key=' + encodeURIComponent(qrKey))
+      fetch(apiBase() + '/login/qr/check?key=' + encodeURIComponent(qrKey))
+        .then(function(res){ return res.json(); })
         .then(function(json){
           var d = json.data || json;
           var st = d.status;
-          console.log('qr check:', 'status=' + st, 'data=' + JSON.stringify(d));
-          if(st == 1){
-            qrTip.textContent = '请用酷狗音乐 App 扫码登录';
-          } else if(st == 2){
-            qrTip.textContent = '已扫码，请在手机上确认登录';
-          } else if(st == 4){
+          console.log('qr check:', 'status=' + st, JSON.stringify(d));
+          if(st == 4){
+            // 扫码成功，立即跳转
             stopQrPoll();
             qrTip.textContent = '扫码成功，正在跳转…';
-            // 把 token 和 userid 存到 cookie，然后调用 API 端种 cookie
-            var token = d.token || '';
-            var userid = d.userid || '';
-            // 调用 API 端设置 cookie
-            fetch(apiBase() + '/login/qr/setcookie?token=' + encodeURIComponent(token) + '&userid=' + encodeURIComponent(userid), {credentials: 'include'})
-              .then(function(){
-                setTimeout(loadInfo, 500);
-              })
-              .catch(function(){
-                // 直接用本地 cookie
-                document.cookie = 'token=' + token + ';path=/';
-                document.cookie = 'userid=' + userid + ';path=/';
-                setTimeout(loadInfo, 500);
-              });
-          } else if(st == 0 || st == 3){
+            setTimeout(loadInfo, 300);
+          } else if(st == 2){
+            qrTip.textContent = '已扫码，请在手机上确认登录';
+          } else if(st == 0){
             stopQrPoll();
             qrTip.className = 'qr-tip qr-expired';
             qrTip.textContent = '二维码已过期，请点击刷新';
           } else {
-            qrTip.textContent = '状态：' + st;
+            qrTip.textContent = '请用酷狗音乐 App 扫码登录';
           }
         })
         .catch(function(){});
-    }, 2000);
+    }, 1500);
   }
 
   function stopQrPoll(){
