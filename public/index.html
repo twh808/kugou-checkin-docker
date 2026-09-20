@@ -382,23 +382,27 @@
         })
         .then(function(json){
           if(!json) return;
-          var d = (json && json.data) ? json.data : json;
+          console.log('qr check response:', json);
           // 兼容多种返回结构
-          var st = (d && d.status) || (d && d.body && d.body.data && d.body.data.status) || (json && json.status);
-          if(st === 4 || st === '4' || st === 200){
+          var d = json.data || json;
+          var st = d.status;
+          // 扫码成功：status=4 或有 token 返回
+          if(st == 4 || (d.token && d.userid)){
             stopQrPoll();
-            qrTip.textContent = '扫码成功，正在获取账户信息…';
+            qrTip.textContent = '扫码成功，正在跳转…';
             setStatus('扫码登录成功，正在获取账户信息…', 'ok');
             // 等待 cookie 同步后再加载
-            setTimeout(loadInfo, 300);
-          } else if(st === 0 || st === '0' || st === 401){
+            setTimeout(loadInfo, 500);
+          } else if(st == 0){
             stopQrPoll();
             qrTip.className = 'qr-tip qr-expired';
-            qrTip.textContent = '二维码已过期，点击上方「扫码登录」重新生成';
-          } else if(st === 2 || st === '2'){
+            qrTip.textContent = '二维码已过期，请点击刷新';
+          } else if(st == 2){
             qrTip.textContent = '已扫码，请在手机上确认登录';
-          } else {
+          } else if(st == 1){
             qrTip.textContent = '请用酷狗音乐 App 扫码登录';
+          } else {
+            qrTip.textContent = '状态：' + st;
           }
         })
         .catch(function(){});
@@ -413,19 +417,22 @@
   function loadInfo(){
     collected = { platform: platformName(), api: apiBase() };
     setStatus('正在获取账户信息…', 'info');
+    console.log('loadInfo start, api:', apiBase());
     
     // 先获取核心用户信息
-    fetch(apiBase() + '/user/detail')
+    fetch(apiBase() + '/user/detail', {credentials: 'include'})
       .then(function(res){ 
+        console.log('user/detail status:', res.status);
         if(!res.ok) throw new Error('HTTP ' + res.status);
         return res.json(); 
       })
       .then(function(json){
+        console.log('user/detail response:', json);
         collected.detail = unwrap(json);
         // 再获取 VIP 和歌单（失败不影响主流程）
         return Promise.all([
-          fetch(apiBase() + '/user/vip/detail').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
-          fetch(apiBase() + '/user/playlist?page=1&pagesize=30').then(function(r){ return r.json(); }).catch(function(){ return {}; })
+          fetch(apiBase() + '/user/vip/detail', {credentials: 'include'}).then(function(r){ return r.json(); }).catch(function(){ return {}; }),
+          fetch(apiBase() + '/user/playlist?page=1&pagesize=30', {credentials: 'include'}).then(function(r){ return r.json(); }).catch(function(){ return {}; })
         ]);
       })
       .then(function(results){
@@ -434,6 +441,7 @@
         render();
       })
       .catch(function(err){
+        console.error('loadInfo error:', err);
         setStatus('获取账户信息失败：' + err.message + '（请重新登录）', 'err');
       });
   }
