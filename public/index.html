@@ -367,7 +367,8 @@
   function startQrPoll(){
     stopQrPoll();
     qrPollTimer = setInterval(function(){
-      fetch(apiBase() + '/login/qr/check?key=' + encodeURIComponent(qrKey))
+      // 加随机参数绕过 API 端 2 分钟缓存
+      fetch(apiBase() + '/login/qr/check?key=' + encodeURIComponent(qrKey) + '&_t=' + Date.now())
         .then(function(res){ return res.json(); })
         .then(function(json){
           var d = json.data || json;
