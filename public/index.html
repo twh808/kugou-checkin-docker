@@ -509,8 +509,9 @@
       fetch(apiBase() + '/login/wx/check?uuid=' + encodeURIComponent(wxUuid) + '&_t=' + Date.now())
         .then(function(res){ return res.json(); })
         .then(function(json){
-          var st = json.status;
-          console.log('wx check:', 'status=' + st, JSON.stringify(json));
+          // 微信接口返回的是 wx_errcode 字段（405=授权成功，返回 wx_code）
+          var st = json.wx_errcode !== undefined ? json.wx_errcode : json.status;
+          console.log('wx check:', 'st=' + st, JSON.stringify(json));
           if(st == 405){
             // 扫码授权成功，用 wx_code 完成开放平台登录
             stopWxPoll();
