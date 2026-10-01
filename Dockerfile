@@ -7,6 +7,10 @@ RUN git clone --depth 1 https://github.com/MakcRe/KuGouMusicApi.git /app/normal 
     cp -r /app/normal /app/lite && \
     rm -rf /app/normal/.git /app/lite/.git
 
+# Patch: 微信登录时把微信 openid 回传给前端
+RUN cd /app/normal && sed -i 's/getToken };$/getToken, openid: assetsTokenResp.data.openid };/' module/login_openplat.js && \
+    cd /app/lite && sed -i 's/getToken };$/getToken, openid: assetsTokenResp.data.openid };/' module/login_openplat.js
+
 # 安装生产依赖
 RUN cd /app/normal && npm install --production && \
     cd /app/lite   && npm install --production
