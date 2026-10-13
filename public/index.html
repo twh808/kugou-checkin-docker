@@ -78,7 +78,8 @@
 
   <div class="tabs">
     <button id="tabNormal" class="active" data-platform="normal">普通版</button>
-    <button id="tabLite" data-platform="lite">概念版</button>`n    <button id="tabFree" data-platform="free">免费版</button>
+    <button id="tabLite" data-platform="lite">概念版</button>
+    <button id="tabFree" data-platform="free">免费版</button>
   </div>
 
   <!-- 登录面板 -->
@@ -255,20 +256,7 @@
     document.getElementById('tabNormal').classList.toggle('active', p === 'normal');
     document.getElementById('tabLite').classList.toggle('active', p === 'lite');
     document.getElementById('tabFree').classList.toggle('active', p === 'free');
-    // 免费版无微信登录（无免费版微信应用），隐藏微信 tab
-    var wxTabBtn = document.getElementById('tabWx');
-    var wxPanel = document.getElementById('wxLogin');
-    if(p === 'free'){
-      wxTabBtn.style.display = 'none';
-      if(wxTabBtn.classList.contains('active')){
-        document.getElementById('tabPhone').classList.add('active');
-        wxTabBtn.classList.remove('active');
-        document.getElementById('phoneLogin').style.display = 'block';
-        wxPanel.style.display = 'none';
-      }
-    } else {
-      wxTabBtn.style.display = '';
-    }
+
     infoPanel.style.display = 'none';
     loginPanel.style.display = 'block';
     stopQrPoll();
