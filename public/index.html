@@ -31,6 +31,7 @@
   .form-row .phone-input{flex:1; min-width:0;}
   .form-row input.code-input{flex:1; min-width:0; text-align:center;}
   .form-row .send-btn{padding:12px 12px; font-size:13px; white-space:nowrap; border-radius:8px; flex-shrink:0;}
+  .form-hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.6;}
   .form-row input:focus{border-color:var(--primary); box-shadow:0 0 0 3px rgba(30,128,255,.1); background:#fff;}
   .btn{border:none; border-radius:8px; padding:11px 16px; font-size:14px; cursor:pointer; background:var(--primary); color:#fff; white-space:nowrap; transition:opacity .2s;}
   .btn:hover{opacity:.9;}
@@ -126,6 +127,18 @@
       </div>
     </div>
 
+    <!-- 免费版：粘贴凭证直接查询（无需登录） -->
+    <div id="freeCred" style="display:none;">
+      <div class="form-group">
+        <label>免费版凭证</label>
+        <div class="form-row">
+          <input type="text" id="freeCredInput" class="phone-input" placeholder="粘贴 mid#dfid#uid#token[#openid]" autocomplete="off" spellcheck="false">
+          <button class="btn ghost send-btn" id="freeCredBtn">查询余额</button>
+        </div>
+        <p class="form-hint">免费版验证码/微信登录接口未开放，请使用扫码登录，或粘贴从免费版App/提现脚本获取的凭证直接查询余额与提现档位。</p>
+      </div>
+    </div>
+
     <div class="status info" id="loginStatus"></div>
   </div>
 
@@ -176,6 +189,11 @@
   var wxLogin = document.getElementById('wxLogin');
   var wxQrImg = document.getElementById('wxQrImg');
   var wxQrTip = document.getElementById('wxQrTip');
+  var freeCred = document.getElementById('freeCred');
+  var freeCredInput = document.getElementById('freeCredInput');
+  var freeCredBtn = document.getElementById('freeCredBtn');
+  // 手动粘贴的免费版凭证（mid#dfid#uid#token[#openid]），优先于 cookie
+  var manualFreeCred = '';
 
   function apiBase(){
     // free 登录复用概念版实例（免费版音乐接口无独立 appid；提现网关走 /api/free）
@@ -258,6 +276,30 @@
     document.getElementById('tabLite').classList.toggle('active', p === 'lite');
     document.getElementById('tabFree').classList.toggle('active', p === 'free');
 
+    // 免费版：隐藏验证码/微信登录（接口未开放），显示凭证粘贴，扫码为主
+    var tabPhoneEl = document.getElementById('tabPhone');
+    var tabWxEl = document.getElementById('tabWx');
+    if(p === 'free'){
+      tabPhoneEl.style.display = 'none';
+      tabWxEl.style.display = 'none';
+      freeCred.style.display = 'block';
+      // 若当前停在验证码/微信标签，强制切到扫码
+      var qrActive = document.getElementById('tabQr').classList.contains('active');
+      if(!qrActive){
+        tabPhoneEl.classList.remove('active');
+        tabWxEl.classList.remove('active');
+        document.getElementById('tabQr').classList.add('active');
+        phoneLogin.style.display = 'none';
+        wxLogin.style.display = 'none';
+        qrLogin.style.display = 'block';
+        stopWxPoll();
+      }
+    } else {
+      tabPhoneEl.style.display = '';
+      tabWxEl.style.display = '';
+      freeCred.style.display = 'none';
+    }
+
     infoPanel.style.display = 'none';
     loginPanel.style.display = 'block';
     stopQrPoll();
@@ -273,6 +315,33 @@
   document.getElementById('tabNormal').addEventListener('click', function(){ setPlatform('normal'); });
   document.getElementById('tabLite').addEventListener('click', function(){ setPlatform('lite'); });
   document.getElementById('tabFree').addEventListener('click', function(){ setPlatform('free'); });
+
+  // 免费版凭证粘贴查询
+  freeCredBtn.addEventListener('click', function(){
+    var v = (freeCredInput.value || '').trim();
+    if(!v){ toast('请先粘贴免费版凭证'); freeCredInput.focus(); return; }
+    manualFreeCred = v;
+    loadFreeInfo();
+  });
+  freeCredInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') freeCredBtn.click();
+  });
+
+  // 解析 mid#dfid#uid#token[#openid]
+  function parseCred(cred){
+    var f = String(cred || '').split('#');
+    return {
+      mid: (f[0] || '').trim(),
+      dfid: (f[1] || '').trim(),
+      uid: (f[2] || '').trim(),
+      token: (f[3] || '').trim(),
+      openid: (f[4] || '').trim()
+    };
+  }
+  function getFreeCred(){
+    // 手动粘贴优先；否则用登录后 cookie 里的凭证
+    return manualFreeCred || buildCredential();
+  }
 
   // ---- 登录方式切换 ----
   var phoneLogin = document.getElementById('phoneLogin');
@@ -617,12 +686,15 @@
 
   function loadFreeInfo(){
     setStatus('正在获取免费版账户信息…', 'info');
-    var cred = buildCredential();
-    var parts = cred.split('#');
-    var q = 'mid=' + encodeURIComponent(parts[0] || '') +
-            '&dfid=' + encodeURIComponent(parts[1] || '') +
-            '&uid=' + encodeURIComponent(parts[2] || '') +
-            '&token=' + encodeURIComponent(parts[3] || '');
+    var c = parseCred(getFreeCred());
+    if(!c.mid || !c.dfid || !c.uid || !c.token){
+      setStatus('免费版凭证不完整，请粘贴 mid#dfid#uid#token 或扫码登录', 'err');
+      return;
+    }
+    var q = 'mid=' + encodeURIComponent(c.mid) +
+            '&dfid=' + encodeURIComponent(c.dfid) +
+            '&uid=' + encodeURIComponent(c.uid) +
+            '&token=' + encodeURIComponent(c.token);
     fetch(freeApiBase() + '/user/info?' + q + '&_t=' + Date.now())
       .then(function(res){
         console.log('free user/info status:', res.status);
@@ -658,13 +730,15 @@
     var account = d.account || {};
     var base = d.base || {};
     var list = Array.isArray(collected.freeLevels) ? collected.freeLevels : [];
+    var c = parseCred(getFreeCred());
 
-    collected.credential = buildCredential();
+    collected.credential = [c.mid, c.dfid, c.uid, c.token].join('#');
     rows.push({label: '拼接串(mid#dfid#uid#token)', value: collected.credential, longText: true});
-    rows.push({label: '用户ID', value: String(base.userid || d.userid || getCookie('userid') || '—')});
+    rows.push({label: '用户ID', value: String(base.userid || d.userid || c.uid || '—')});
     rows.push({label: '昵称', value: String(base.nickname || '—')});
     rows.push({label: '免费版余额', value: String(account.balance_coins !== undefined ? account.balance_coins : '—') + ' 金币'});
-    if(collected.openid) rows.push({label: '微信OpenID', value: collected.openid, longText: true});
+    var oid = c.openid || collected.openid || '';
+    if(oid) rows.push({label: '微信OpenID', value: oid, longText: true});
     rows.push({label: '提现档位', value: list.map(function(x){ return (x.coins / 10000).toFixed(2) + '元'; }).join('、') || '—'});
 
     var html = '';
