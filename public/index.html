@@ -178,10 +178,11 @@
   var wxQrTip = document.getElementById('wxQrTip');
 
   function apiBase(){
-    if(currentPlatform === 'lite') return API_BASE + '/api/lite';
-    if(currentPlatform === 'free') return API_BASE + '/api/free';
+    // free 登录复用概念版实例（免费版音乐接口无独立 appid；提现网关走 /api/free）
+    if(currentPlatform === 'lite' || currentPlatform === 'free') return API_BASE + '/api/lite';
     return API_BASE + '/api/normal';
   }
+  function freeApiBase(){ return API_BASE + '/api/free'; }
   function platformName(){
     if(currentPlatform === 'lite') return '概念版';
     if(currentPlatform === 'free') return '免费版';
@@ -578,6 +579,7 @@
   // ---- 获取账户信息 ----
   function loadInfo(){
     collected = { platform: platformName(), api: apiBase(), openid: wxOpenid };
+    if(currentPlatform === 'free'){ loadFreeInfo(); return; }
     setStatus('正在获取账户信息…', 'info');
     console.log('loadInfo start, api:', apiBase());
     
@@ -609,6 +611,73 @@
       });
   }
 
+  function loadFreeInfo(){
+    setStatus('正在获取免费版账户信息…', 'info');
+    var cred = buildCredential();
+    var parts = cred.split('#');
+    var q = 'mid=' + encodeURIComponent(parts[0] || '') +
+            '&dfid=' + encodeURIComponent(parts[1] || '') +
+            '&uid=' + encodeURIComponent(parts[2] || '') +
+            '&token=' + encodeURIComponent(parts[3] || '');
+    fetch(freeApiBase() + '/user/info?' + q + '&_t=' + Date.now())
+      .then(function(res){
+        console.log('free user/info status:', res.status);
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(json){
+        console.log('free user/info:', json);
+        if(json && json.status === 1 && json.data){
+          collected.freeInfo = json.data;
+        } else {
+          collected.freeInfo = {};
+          setStatus('免费版信息查询失败：' + ((json && json.error) || JSON.stringify(json)), 'err');
+        }
+        render();
+      })
+      .catch(function(err){
+        console.error('free info error:', err);
+        setStatus('获取免费版信息失败：' + err.message + '（请重新登录）', 'err');
+      });
+    fetch(freeApiBase() + '/levels?' + q + '&_t=' + Date.now())
+      .then(function(r){ return r.json(); })
+      .then(function(json){
+        collected.freeLevels = (json && json.status === 1 && json.data && Array.isArray(json.data.list)) ? json.data.list : [];
+        render();
+      })
+      .catch(function(e){ console.log('free levels error', e); });
+  }
+
+  function renderFree(){
+    var rows = [];
+    var d = collected.freeInfo || {};
+    var account = d.account || {};
+    var base = d.base || {};
+    var list = Array.isArray(collected.freeLevels) ? collected.freeLevels : [];
+
+    collected.credential = buildCredential();
+    rows.push({label: '拼接串(mid#dfid#uid#token)', value: collected.credential, longText: true});
+    rows.push({label: '用户ID', value: String(base.userid || d.userid || getCookie('userid') || '—')});
+    rows.push({label: '昵称', value: String(base.nickname || '—')});
+    rows.push({label: '免费版余额', value: String(account.balance_coins !== undefined ? account.balance_coins : '—') + ' 金币'});
+    if(collected.openid) rows.push({label: '微信OpenID', value: collected.openid, longText: true});
+    rows.push({label: '提现档位', value: list.map(function(x){ return (x.coins / 10000).toFixed(2) + '元'; }).join('、') || '—'});
+
+    var html = '';
+    rows.forEach(function(r){
+      var cls = r.longText ? 'value long-text' : 'value';
+      html += '<div class="row"><span class="label">' + esc(r.label) + '</span><span class="' + cls + '">' + esc(r.value) + '</span><button class="copy-btn" data-value="' + esc(r.value) + '">复制</button></div>';
+    });
+    infoCard.innerHTML = html;
+
+    collected.rows = rows;
+    rawJsonEl.textContent = JSON.stringify(collected, null, 2);
+
+    loginPanel.style.display = 'none';
+    infoPanel.style.display = 'block';
+    platformLabel.textContent = '账户信息 · ' + platformName();
+  }
+
   function parseJson(res){ return res.json(); }
   function unwrap(json){
     if(json && typeof json === 'object' && json.status === 1 && json.data !== undefined) return json.data;
@@ -629,6 +698,7 @@
 
   function render(){
     console.log('render called');
+    if(currentPlatform === 'free'){ renderFree(); return; }
     var rows = [];
     var d = collected.detail || {};
     var vip = collected.vip || {};

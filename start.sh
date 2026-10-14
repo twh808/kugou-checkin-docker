@@ -23,14 +23,9 @@ grep -q "^PORT=" .env && sed -i "s/^PORT=.*/PORT=3001/" .env || echo "PORT=3001"
 echo "[2/4] 启动概念版 API (端口 3001)..."
 node app.js > /var/log/kugou-lite.log 2>&1 &
 
-# ---- 免费版 ----
-cd /app/free
-[ -f .env ] || cp .env.example .env
-grep -q "^platform=" .env && sed -i "s/^platform=.*/platform='lite'/" .env || echo "platform='lite'" >> .env
-grep -q "^PORT=" .env && sed -i "s/^PORT=.*/PORT=3002/" .env || echo "PORT=3002" >> .env
-
+# ---- 免费版（yutc/speeder 提现网关代理，端口 3002）----
 echo "[3/4] 启动免费版 API (端口 3002)..."
-node app.js > /var/log/kugou-free.log 2>&1 &
+node /app/free-api/free-api.js > /var/log/kugou-free.log 2>&1 &
 
 # ---- 等待就绪 ----
 echo "[4/4] 等待 API 就绪..."
