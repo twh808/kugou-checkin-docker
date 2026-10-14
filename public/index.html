@@ -389,6 +389,10 @@
   });
 
   // ---- 扫码登录（用 API 端接口）----
+  function qrAppName(){
+    // 免费版：用酷狗免费版 App 扫码才能拿到免费版身份凭证
+    return currentPlatform === 'free' ? '酷狗免费版' : '酷狗音乐';
+  }
   var qrDiv = null;
   function startQrLogin(){
     stopQrPoll();
@@ -426,7 +430,7 @@
             correctLevel: QRCode.CorrectLevel.M
           });
           qrDiv.style.display = 'block';
-          qrTip.textContent = '请用酷狗音乐 App 扫码登录';
+          qrTip.textContent = '请用' + qrAppName() + ' App 扫码登录';
           startQrPoll();
         } else {
           throw new Error('二维码生成失败');
@@ -460,7 +464,7 @@
             qrTip.className = 'qr-tip qr-expired';
             qrTip.textContent = '二维码已过期，请点击刷新';
           } else {
-            qrTip.textContent = '请用酷狗音乐 App 扫码登录';
+            qrTip.textContent = '请用' + qrAppName() + ' App 扫码登录';
           }
         })
         .catch(function(){});
