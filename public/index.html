@@ -276,29 +276,8 @@
     document.getElementById('tabLite').classList.toggle('active', p === 'lite');
     document.getElementById('tabFree').classList.toggle('active', p === 'free');
 
-    // 免费版：隐藏验证码/微信登录（接口未开放），显示凭证粘贴，扫码为主
-    var tabPhoneEl = document.getElementById('tabPhone');
-    var tabWxEl = document.getElementById('tabWx');
-    if(p === 'free'){
-      tabPhoneEl.style.display = 'none';
-      tabWxEl.style.display = 'none';
-      freeCred.style.display = 'block';
-      // 若当前停在验证码/微信标签，强制切到扫码
-      var qrActive = document.getElementById('tabQr').classList.contains('active');
-      if(!qrActive){
-        tabPhoneEl.classList.remove('active');
-        tabWxEl.classList.remove('active');
-        document.getElementById('tabQr').classList.add('active');
-        phoneLogin.style.display = 'none';
-        wxLogin.style.display = 'none';
-        qrLogin.style.display = 'block';
-        stopWxPoll();
-      }
-    } else {
-      tabPhoneEl.style.display = '';
-      tabWxEl.style.display = '';
-      freeCred.style.display = 'none';
-    }
+    // 免费版：登录方式与普通/概念版一致（同一账号体系）；附加"粘贴凭证查余额"
+    freeCred.style.display = (p === 'free') ? 'block' : 'none';
 
     infoPanel.style.display = 'none';
     loginPanel.style.display = 'block';
@@ -652,7 +631,7 @@
   // ---- 获取账户信息 ----
   function loadInfo(){
     collected = { platform: platformName(), api: apiBase(), openid: wxOpenid };
-    if(currentPlatform === 'free'){ loadFreeInfo(); return; }
+    if(currentPlatform === 'free'){ loadFreeBalance(); }
     setStatus('正在获取账户信息…', 'info');
     console.log('loadInfo start, api:', apiBase());
     
@@ -682,6 +661,30 @@
         console.error('loadInfo error:', err);
         setStatus('获取账户信息失败：' + err.message + '（请重新登录）', 'err');
       });
+  }
+
+  function loadFreeBalance(){
+    // 附加查询免费版余额/档位（失败静默，不阻断主信息流程）
+    var c = parseCred(getFreeCred());
+    if(!c.mid || !c.dfid || !c.uid || !c.token) return;
+    var q = 'mid=' + encodeURIComponent(c.mid) +
+            '&dfid=' + encodeURIComponent(c.dfid) +
+            '&uid=' + encodeURIComponent(c.uid) +
+            '&token=' + encodeURIComponent(c.token);
+    fetch(freeApiBase() + '/user/info?' + q + '&_t=' + Date.now())
+      .then(function(r){ return r.json(); })
+      .then(function(json){
+        collected.freeInfo = (json && json.status === 1 && json.data) ? json.data : {};
+        render();
+      })
+      .catch(function(){ collected.freeInfo = {}; render(); });
+    fetch(freeApiBase() + '/levels?' + q + '&_t=' + Date.now())
+      .then(function(r){ return r.json(); })
+      .then(function(json){
+        collected.freeLevels = (json && json.status === 1 && json.data && Array.isArray(json.data.list)) ? json.data.list : [];
+        render();
+      })
+      .catch(function(){});
   }
 
   function loadFreeInfo(){
@@ -724,38 +727,6 @@
       .catch(function(e){ console.log('free levels error', e); });
   }
 
-  function renderFree(){
-    var rows = [];
-    var d = collected.freeInfo || {};
-    var account = d.account || {};
-    var base = d.base || {};
-    var list = Array.isArray(collected.freeLevels) ? collected.freeLevels : [];
-    var c = parseCred(getFreeCred());
-
-    collected.credential = [c.mid, c.dfid, c.uid, c.token].join('#');
-    rows.push({label: '拼接串(mid#dfid#uid#token)', value: collected.credential, longText: true});
-    rows.push({label: '用户ID', value: String(base.userid || d.userid || c.uid || '—')});
-    rows.push({label: '昵称', value: String(base.nickname || '—')});
-    rows.push({label: '免费版余额', value: String(account.balance_coins !== undefined ? account.balance_coins : '—') + ' 金币'});
-    var oid = c.openid || collected.openid || '';
-    if(oid) rows.push({label: '微信OpenID', value: oid, longText: true});
-    rows.push({label: '提现档位', value: list.map(function(x){ return (x.coins / 10000).toFixed(2) + '元'; }).join('、') || '—'});
-
-    var html = '';
-    rows.forEach(function(r){
-      var cls = r.longText ? 'value long-text' : 'value';
-      html += '<div class="row"><span class="label">' + esc(r.label) + '</span><span class="' + cls + '">' + esc(r.value) + '</span><button class="copy-btn" data-value="' + esc(r.value) + '">复制</button></div>';
-    });
-    infoCard.innerHTML = html;
-
-    collected.rows = rows;
-    rawJsonEl.textContent = JSON.stringify(collected, null, 2);
-
-    loginPanel.style.display = 'none';
-    infoPanel.style.display = 'block';
-    platformLabel.textContent = '账户信息 · ' + platformName();
-  }
-
   function parseJson(res){ return res.json(); }
   function unwrap(json){
     if(json && typeof json === 'object' && json.status === 1 && json.data !== undefined) return json.data;
@@ -776,21 +747,29 @@
 
   function render(){
     console.log('render called');
-    if(currentPlatform === 'free'){ renderFree(); return; }
     var rows = [];
     var d = collected.detail || {};
     var vip = collected.vip || {};
     var pl = collected.playlist || {};
     var list = (pl && Array.isArray(pl.list)) ? pl.list : [];
+    var c = parseCred(getFreeCred());
 
     // 核心字段
-    collected.credential = buildCredential();
+    collected.credential = [c.mid, c.dfid, c.uid, c.token].every(Boolean) ? [c.mid, c.dfid, c.uid, c.token].join('#') : buildCredential();
     rows.push({label: '拼接串(mid#dfid#uid#token)', value: collected.credential, longText: true});
-    rows.push({label: '用户ID', value: String(d.userid || d.id || getCookie('userid') || '—')});
+    rows.push({label: '用户ID', value: String(d.userid || d.id || c.uid || getCookie('userid') || '—')});
     rows.push({label: '昵称', value: String(d.nickname || d.nick || '—')});
     rows.push({label: '手机号', value: String(d.phonenumber || '—')});
     rows.push({label: 'VIP类型', value: String(vip.vip_type || vip.type || '—')});
     rows.push({label: '歌单数量', value: String(pl.total || list.length || 0)});
+    if(currentPlatform === 'free'){
+      var fa = collected.freeInfo || {};
+      var fAcc = fa.account || {};
+      var fl = Array.isArray(collected.freeLevels) ? collected.freeLevels : [];
+      var fbal = fAcc.balance_coins !== undefined ? fAcc.balance_coins : null;
+      rows.push({label: '免费版余额', value: fbal !== null ? String(fbal) + ' 金币' : '—'});
+      rows.push({label: '提现档位', value: fl.map(function(x){ return (x.coins / 10000).toFixed(2) + '元'; }).join('、') || '—'});
+    }
     if(collected.openid) rows.push({label: '微信OpenID', value: collected.openid, longText: true});
 
     var html = '';
