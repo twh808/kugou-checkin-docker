@@ -12,10 +12,6 @@ COPY patch-openplat.js /app/patch-openplat.js
 RUN cd /app/normal && node /app/patch-openplat.js module/login_openplat.js && \
     cd /app/lite && node /app/patch-openplat.js module/login_openplat.js
 
-# 免费版提现网关代理服务（yutc/speeder，appid=3166，参数来自抓包）
-COPY free-api/ /app/free-api/
-RUN cd /app/free-api && npm install --production
-
 # 安装生产依赖
 RUN cd /app/normal && npm install --production && \
     cd /app/lite   && npm install --production
